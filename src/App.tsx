@@ -1352,20 +1352,19 @@ function App() {
 
 function OccupationSelector() {
   const navigate = useNavigate();
-  const { lang, t } = useLanguage();
+  const { t } = useLanguage();
 
   const cards = useMemo(
-    () =>
-      (Object.entries(occupationProfilesConfig) as Array<[OccupationKey, OccupationProfile]>).map(
-        ([key, value]) => ({
-          key,
-          ...value,
-          title: t.occupations[key]?.title || key,
-          subtitle: t.occupations[key]?.subtitle || '',
-        }),
-      ),
-    [t],
-  );
+  () =>
+    (Object.entries(occupationProfilesConfig) as Array<[OccupationKey, OccupationProfile]>).map(
+      ([key, value]) => ({
+        ...value,
+        title: t.occupations[key]?.title || key,
+        subtitle: t.occupations[key]?.subtitle || '',
+      }),
+    ),
+  [t],
+);
 
   return (
     <div className="app-shell">
