@@ -983,8 +983,6 @@ const POPULAR_LOCATIONS: LocationSuggestion[] = [
   { id: 'br-sao', name: 'São Paulo', subtext: 'Brazil' },
 ];
 
-const activepiecesWebhookUrl = (import.meta.env.VITE_ACTIVEPIECES_WEBHOOK_URL as string | undefined) ?? '';
-
 /** Safely parse fetch response */
 async function safeJsonParse(response: Response): Promise<Record<string, unknown>> {
   const text = await response.text();
@@ -1999,8 +1997,8 @@ function Chatbot({ occupation }: { occupation: OccupationKey }) {
     setIsSending(true);
 
     try {
-      if (occupation === 'farmer' && activepiecesWebhookUrl) {
-        const response = await fetch(activepiecesWebhookUrl, {
+      if (occupation === 'farmer') {
+        const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
