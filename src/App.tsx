@@ -162,6 +162,57 @@ function OccupationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const fetchWeatherForCoordinates = async (lat: number, lng: number, label: string) => {
+    if (!googleApiKey) {
+      setError('Add VITE_GOOGLE_API_KEY in your .env.local file to enable live weather data.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(
+        `https://weather.googleapis.com/v1/currentConditions:lookup?key=${googleApiKey}&location.latitude=${lat}&location.longitude=${lng}`,
+      );
+
+      const data = await response.json();
+
+      if (data?.error) {
+        throw new Error(data.error.message || 'Google Weather API request failed.');
+      }
+
+      const current = data.currentConditions ?? {};
+      const temperatureC = Number(current.temperature?.celsius ?? 0);
+      const feelsLikeC = Number(current.feelsLikeTemperature?.celsius ?? temperatureC);
+      const humidity = Number(current.relativeHumidity ?? 0);
+      const windKmh = Number(current.wind?.speed?.kilometersPerHour ?? 0);
+      const pressure = Number(current.airPressure?.meanSeaLevelMillibars ?? current.airPressure?.millibars ?? 0);
+      const conditionText = current.weatherCondition?.description?.text ?? 'Weather update';
+      const iconUrl = current.weatherCondition?.iconBaseUri
+        ? `${current.weatherCondition.iconBaseUri}_s.png`
+        : 'https://maps.gstatic.com/tactile/weather/png/72/sunny.png';
+
+      setWeather({
+        locationName: label,
+        country: 'Current location',
+        temperatureC,
+        feelsLikeC,
+        humidity,
+        pressure,
+        windKmh,
+        condition: conditionText,
+        iconUrl,
+        sunriseText: '--',
+        sunsetText: '--',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong while fetching weather data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchWeather = async (location: string) => {
     if (!googleApiKey) {
       setError('Add VITE_GOOGLE_API_KEY in your .env.local file to enable live weather data.');
@@ -185,6 +236,11 @@ function OccupationPage() {
       const place = geocodeData.results[0];
       const lat = place.geometry.location.lat;
       const lng = place.geometry.location.lng;
+      const locationText = place.formatted_address || location;
+      const country =
+        place.address_components?.find((component: { types?: string[]; long_name?: string }) =>
+          component.types?.includes('country'),
+        )?.long_name ?? 'Unknown';
 
       const weatherResponse = await fetch(
         `https://weather.googleapis.com/v1/currentConditions:lookup?key=${googleApiKey}&location.latitude=${lat}&location.longitude=${lng}`,
@@ -208,10 +264,8 @@ function OccupationPage() {
         : 'https://maps.gstatic.com/tactile/weather/png/72/sunny.png';
 
       setWeather({
-        locationName: place.formatted_address || location,
-        country:
-          place.address_components?.find((component: any) => component.types?.includes('country'))?.long_name ??
-          'Unknown',
+        locationName: locationText,
+        country,
         temperatureC,
         feelsLikeC,
         humidity,
@@ -229,10 +283,38 @@ function OccupationPage() {
     }
   };
 
+  const getCurrentLocationWeather = async () => {
+    if (!navigator.geolocation) {
+      setCity(profile.defaultCity);
+      await fetchWeather(profile.defaultCity);
+      return;
+    }
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 600000,
+        });
+      });
+
+      setCity('Current location');
+      await fetchWeatherForCoordinates(
+        position.coords.latitude,
+        position.coords.longitude,
+        'Current location',
+      );
+    } catch {
+      setCity(profile.defaultCity);
+      await fetchWeather(profile.defaultCity);
+    }
+  };
+
   useEffect(() => {
     const nextCity = profile.defaultCity;
     setCity(nextCity);
-    void fetchWeather(nextCity);
+    void getCurrentLocationWeather();
   }, [safeOccupation]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
