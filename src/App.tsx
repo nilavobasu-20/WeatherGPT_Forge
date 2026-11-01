@@ -1328,17 +1328,27 @@ function App() {
     }
     return 'en';
   });
-  const [isNoticeOpen, setIsNoticeOpen] = useState(
-    () => localStorage.getItem('weathergpt_notice_dismissed') !== 'true',
-  );
+  const [isNoticeOpen, setIsNoticeOpen] = useState(() => {
+    try {
+      // Trigger when the user first opens the website in this browser session
+      return sessionStorage.getItem('weathergpt_notice_dismissed') !== 'true';
+    } catch {
+      return true;
+    }
+  });
 
   const setLang = (newLang: Language) => {
     setLangState(newLang);
-    localStorage.setItem('weathergpt_lang', newLang);
+    try {
+      localStorage.setItem('weathergpt_lang', newLang);
+    } catch {}
   };
 
   const dismissNotice = () => {
-    localStorage.setItem('weathergpt_notice_dismissed', 'true');
+    try {
+      sessionStorage.setItem('weathergpt_notice_dismissed', 'true');
+      localStorage.removeItem('weathergpt_notice_dismissed');
+    } catch {}
     setIsNoticeOpen(false);
   };
 
@@ -1379,48 +1389,65 @@ function PlatformNoticeModal({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
       <section
         className="notice-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="notice-title"
         aria-describedby="notice-message"
+        onClick={(event) => event.stopPropagation()}
       >
-        <button
-          type="button"
-          className="modal-close-btn"
-          onClick={onClose}
-          aria-label={t.noticeModal.closeButton}
-          autoFocus
-        >
-          ×
-        </button>
+        <div className="modal-top-bar">
+          <div className="notice-tag-badge">
+            <span className="notice-pulse-dot" aria-hidden="true" />
+            <span className="notice-tag">{t.noticeModal.tag}</span>
+          </div>
+          <div className="modal-top-actions">
+            <LanguageSelector />
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={onClose}
+              aria-label={t.noticeModal.closeButton}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
         <header className="notice-header">
           <div className="notice-icon-badge" aria-hidden="true">
             🌾
           </div>
           <div className="notice-title-group">
-            <span className="notice-tag">{t.noticeModal.tag}</span>
             <h3 id="notice-title">{t.noticeModal.title}</h3>
           </div>
         </header>
-        <div className="notice-language">
-          <LanguageSelector />
-        </div>
+
         <p className="notice-message" id="notice-message">
           {t.noticeModal.message}
         </p>
+
         <div className="notice-status-grid">
           <div className="notice-status-item active">
-            <span className="status-label">{t.occupations.farmer.title}</span>
+            <span className="status-label">🌾 {t.occupations.farmer.title}</span>
             <span className="status-badge badge-active">{t.noticeModal.farmerStatus}</span>
           </div>
           <div className="notice-status-item">
-            <span className="status-label">{t.occupations.others.title}</span>
+            <span className="status-label">🌊 {t.occupations.marine.title}</span>
+            <span className="status-badge badge-dev">{t.noticeModal.otherStatus}</span>
+          </div>
+          <div className="notice-status-item">
+            <span className="status-label">✈️ {t.occupations.aviation.title}</span>
+            <span className="status-badge badge-dev">{t.noticeModal.otherStatus}</span>
+          </div>
+          <div className="notice-status-item">
+            <span className="status-label">☀️ {t.occupations.others.title}</span>
             <span className="status-badge badge-dev">{t.noticeModal.otherStatus}</span>
           </div>
         </div>
+
         <button type="button" className="notice-action-btn" onClick={onClose}>
           {t.noticeModal.confirmBtn}
         </button>

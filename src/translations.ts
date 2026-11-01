@@ -49,7 +49,7 @@ export const translations = {
       tag: 'Platform Notice',
       title: 'Notice: Farmer Mode Active',
       message:
-        'This website is currently functional for only farmers. The rest of the occupations are under development and will be updated in the future.',
+        'The website is currently functional for only farmers and the rest of the occupations are under development and it will be updated in the future.',
       farmerStatus: 'Active & Functional',
       otherStatus: 'Under Development',
       confirmBtn: 'Got it, Continue',
