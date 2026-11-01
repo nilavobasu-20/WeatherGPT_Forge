@@ -85,6 +85,7 @@ const occupationProfiles: Record<OccupationKey, OccupationProfile> = {
 };
 
 const apiKey = import.meta.env.VITE_WEATHER_API_KEY as string | undefined;
+const activepiecesWebhookUrl = (import.meta.env.VITE_ACTIVEPIECES_WEBHOOK_URL as string | undefined) ?? '';
 
 function App() {
   return (
@@ -316,7 +317,7 @@ function OccupationPage() {
               <h3>RAG chatbot</h3>
             </div>
           </div>
-          <Chatbot />
+          <Chatbot occupation={safeOccupation} />
         </section>
       </main>
     </div>
@@ -332,7 +333,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Chatbot() {
+function Chatbot({ occupation }: { occupation: OccupationKey }) {
   const [messages, setMessages] = useState([
     {
       sender: 'bot',
@@ -340,20 +341,76 @@ function Chatbot() {
     },
   ]);
   const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   const sendMessage = async () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || isSending) return;
 
     const userMessage = { sender: 'user', text: trimmed };
     setMessages((previous) => [...previous, userMessage]);
     setInput('');
+    setIsSending(true);
 
-    const replyText = `Weather GPT: Based on current weather and your role context, here is a suggested answer for “${trimmed}”. Connect your real RAG backend here for dynamic AI responses.`;
+    try {
+      if (occupation === 'farmer' && activepiecesWebhookUrl) {
+        const response = await fetch(activepiecesWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: trimmed,
+            query: trimmed,
+            occupation: 'farmer',
+            role: 'Farmer',
+            source: 'WeatherGPT_Forge',
+            timestamp: new Date().toISOString(),
+          }),
+        });
 
-    setTimeout(() => {
-      setMessages((previous) => [...previous, { sender: 'bot', text: replyText }]);
-    }, 350);
+        let botText = `Weather GPT: I connected to your Activepieces farmer bot for “${trimmed}”.`;
+
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') ?? '';
+          if (contentType.includes('application/json')) {
+            const data = await response.json();
+            const candidate =
+              data?.answer ??
+              data?.reply ??
+              data?.message ??
+              data?.output ??
+              data?.response ??
+              data?.result ??
+              data?.text;
+            if (typeof candidate === 'string' && candidate.trim()) {
+              botText = candidate.trim();
+            } else if (data && typeof data === 'object') {
+              botText = JSON.stringify(data, null, 2);
+            }
+          } else {
+            const text = await response.text();
+            if (text.trim()) {
+              botText = text.trim();
+            }
+          }
+        } else {
+          botText = `Weather GPT: Your Activepieces flow returned an error (${response.status}). Check the published webhook and ensure the flow is active.`;
+        }
+
+        setMessages((previous) => [...previous, { sender: 'bot', text: botText }]);
+        return;
+      }
+
+      const fallbackReply = `Weather GPT: Based on the current conditions, here is a suggested answer for “${trimmed}”. Connect your RAG backend here for dynamic AI responses.`;
+      setMessages((previous) => [...previous, { sender: 'bot', text: fallbackReply }]);
+    } catch (error) {
+      const fallbackReply =
+        error instanceof Error
+          ? `Weather GPT: Error while contacting Activepieces: ${error.message}`
+          : 'Weather GPT: There was an issue contacting the chatbot service.';
+      setMessages((previous) => [...previous, { sender: 'bot', text: fallbackReply }]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -376,10 +433,11 @@ function Chatbot() {
               void sendMessage();
             }
           }}
-          placeholder="Ask about weather, risk, or planning..."
+          placeholder={occupation === 'farmer' ? 'Ask the farmer weather assistant...' : 'Ask about weather, risk, or planning...'}
+          disabled={isSending}
         />
-        <button type="button" onClick={() => void sendMessage()}>
-          Send
+        <button type="button" onClick={() => void sendMessage()} disabled={isSending}>
+          {isSending ? 'Sending...' : 'Send'}
         </button>
       </div>
     </div>
