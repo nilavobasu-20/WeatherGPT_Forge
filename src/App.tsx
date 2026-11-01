@@ -1323,10 +1323,18 @@ function App() {
     }
     return 'en';
   });
+  const [isNoticeOpen, setIsNoticeOpen] = useState(
+    () => localStorage.getItem('weathergpt_notice_dismissed') !== 'true',
+  );
 
   const setLang = (newLang: Language) => {
     setLangState(newLang);
     localStorage.setItem('weathergpt_lang', newLang);
+  };
+
+  const dismissNotice = () => {
+    localStorage.setItem('weathergpt_notice_dismissed', 'true');
+    setIsNoticeOpen(false);
   };
 
   const t = translations[lang] || translations.en;
@@ -1346,7 +1354,70 @@ function App() {
         <Route path="/" element={<OccupationSelector />} />
         <Route path="/:occupation" element={<OccupationPage />} />
       </Routes>
+      {isNoticeOpen && <PlatformNoticeModal onClose={dismissNotice} />}
     </LanguageContext.Provider>
+  );
+}
+
+function PlatformNoticeModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop">
+      <section
+        className="notice-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notice-title"
+        aria-describedby="notice-message"
+      >
+        <button
+          type="button"
+          className="modal-close-btn"
+          onClick={onClose}
+          aria-label={t.noticeModal.closeButton}
+          autoFocus
+        >
+          ×
+        </button>
+        <header className="notice-header">
+          <div className="notice-icon-badge" aria-hidden="true">
+            🌾
+          </div>
+          <div className="notice-title-group">
+            <span className="notice-tag">{t.noticeModal.tag}</span>
+            <h3 id="notice-title">{t.noticeModal.title}</h3>
+          </div>
+        </header>
+        <p className="notice-message" id="notice-message">
+          {t.noticeModal.message}
+        </p>
+        <div className="notice-status-grid">
+          <div className="notice-status-item active">
+            <span className="status-label">{t.occupations.farmer.title}</span>
+            <span className="status-badge badge-active">{t.noticeModal.farmerStatus}</span>
+          </div>
+          <div className="notice-status-item">
+            <span className="status-label">{t.occupations.others.title}</span>
+            <span className="status-badge badge-dev">{t.noticeModal.otherStatus}</span>
+          </div>
+        </div>
+        <button type="button" className="notice-action-btn" onClick={onClose}>
+          {t.noticeModal.confirmBtn}
+        </button>
+      </section>
+    </div>
   );
 }
 

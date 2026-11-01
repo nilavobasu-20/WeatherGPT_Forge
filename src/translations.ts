@@ -45,6 +45,16 @@ export const translations = {
     chatPlaceholderGeneral: 'Ask about weather, risk, or planning...',
     send: 'Send',
     sending: 'Sending...',
+    noticeModal: {
+      tag: 'Platform Notice',
+      title: 'Notice: Farmer Mode Active',
+      message:
+        'This website is currently functional for only farmers. The rest of the occupations are under development and will be updated in the future.',
+      farmerStatus: 'Active & Functional',
+      otherStatus: 'Under Development',
+      confirmBtn: 'Got it, Continue',
+      closeButton: 'Close notice',
+    },
     occupations: {
       farmer: {
         title: 'Farmer',
@@ -102,6 +112,16 @@ export const translations = {
     chatPlaceholderGeneral: 'मौसम, जोखिम या योजना के बारे में पूछें...',
     send: 'भेजें',
     sending: 'भेजा जा रहा है...',
+    noticeModal: {
+      tag: 'महत्वपूर्ण सूचना',
+      title: 'सूचना: केवल किसानों के लिए सक्रिय',
+      message:
+        'यह वेबसाइट वर्तमान में केवल किसानों के लिए कार्यात्मक है। शेष सभी व्यवसाय अभी निर्माणाधीन हैं और इन्हें भविष्य में अपडेट किया जाएगा।',
+      farmerStatus: 'सक्रिय एवं कार्यात्मक',
+      otherStatus: 'निर्माणाधीन',
+      confirmBtn: 'समझ गया, आगे बढ़ें',
+      closeButton: 'सूचना बंद करें',
+    },
     occupations: {
       farmer: {
         title: 'किसान',
@@ -159,6 +179,16 @@ export const translations = {
     chatPlaceholderGeneral: 'আবহাওয়া, ঝুঁকি বা পরিকল্পনা সম্পর্কে জিজ্ঞাসা করুন...',
     send: 'পাঠান',
     sending: 'পাঠানো হচ্ছে...',
+    noticeModal: {
+      tag: 'গুরুত্বপূর্ণ বিজ্ঞপ্তি',
+      title: 'বিজ্ঞপ্তি: শুধুমাত্র কৃষকদের জন্য সক্রিয়',
+      message:
+        'এই ওয়েবসাইটটি বর্তমানে শুধুমাত্র কৃষকদের জন্য কার্যকরী। বাকি সকল পেশা বর্তমানে নির্মাণাধীন রয়েছে এবং ভবিষ্যতে আপডেট করা হবে।',
+      farmerStatus: 'সক্রিয় ও কার্যকরী',
+      otherStatus: 'নির্মাণাধীন',
+      confirmBtn: 'বুঝেছি, এগিয়ে যান',
+      closeButton: 'বিজ্ঞপ্তি বন্ধ করুন',
+    },
     occupations: {
       farmer: {
         title: 'কৃষক',
@@ -223,4 +253,3 @@ export function translateCondition(condition: string, lang: Language): string {
 
   return condition;
 }
-
