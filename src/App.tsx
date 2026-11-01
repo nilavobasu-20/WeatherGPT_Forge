@@ -172,14 +172,11 @@ function OccupationPage() {
     setError('');
 
     try {
-      const response = await fetch(
-        `https://weather.googleapis.com/v1/currentConditions:lookup?key=${googleApiKey}&location.latitude=${lat}&location.longitude=${lng}`,
-      );
-
+      const response = await fetch(`/api/weather?lat=${lat}&lng=${lng}`);
       const data = await response.json();
 
-      if (data?.error) {
-        throw new Error(data.error.message || 'Google Weather API request failed.');
+      if (!response.ok || data?.error) {
+        throw new Error(data?.error || 'Google Weather API request failed.');
       }
 
       const current = data.currentConditions ?? {};
@@ -223,14 +220,11 @@ function OccupationPage() {
     setError('');
 
     try {
-      const geocodeResponse = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${googleApiKey}`,
-      );
-
+      const geocodeResponse = await fetch(`/api/geocode?address=${encodeURIComponent(location)}`);
       const geocodeData = await geocodeResponse.json();
 
-      if (geocodeData.status !== 'OK' || !geocodeData.results?.length) {
-        throw new Error('Could not resolve that city or location in Google Maps.');
+      if (!geocodeResponse.ok || geocodeData.status !== 'OK' || !geocodeData.results?.length) {
+        throw new Error(geocodeData?.error || 'Could not resolve that city or location in Google Maps.');
       }
 
       const place = geocodeData.results[0];
@@ -242,14 +236,11 @@ function OccupationPage() {
           component.types?.includes('country'),
         )?.long_name ?? 'Unknown';
 
-      const weatherResponse = await fetch(
-        `https://weather.googleapis.com/v1/currentConditions:lookup?key=${googleApiKey}&location.latitude=${lat}&location.longitude=${lng}`,
-      );
-
+      const weatherResponse = await fetch(`/api/weather?lat=${lat}&lng=${lng}`);
       const weatherData = await weatherResponse.json();
 
-      if (weatherData?.error) {
-        throw new Error(weatherData.error.message || 'Google Weather API request failed.');
+      if (!weatherResponse.ok || weatherData?.error) {
+        throw new Error(weatherData?.error || 'Google Weather API request failed.');
       }
 
       const current = weatherData.currentConditions ?? {};
@@ -300,11 +291,7 @@ function OccupationPage() {
       });
 
       setCity('Current location');
-      await fetchWeatherForCoordinates(
-        position.coords.latitude,
-        position.coords.longitude,
-        'Current location',
-      );
+      await fetchWeatherForCoordinates(position.coords.latitude, position.coords.longitude, 'Current location');
     } catch {
       setCity(profile.defaultCity);
       await fetchWeather(profile.defaultCity);
@@ -312,8 +299,7 @@ function OccupationPage() {
   };
 
   useEffect(() => {
-    const nextCity = profile.defaultCity;
-    setCity(nextCity);
+    setCity(profile.defaultCity);
     void getCurrentLocationWeather();
   }, [safeOccupation]);
 
