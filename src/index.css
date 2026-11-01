@@ -1004,6 +1004,11 @@ a {
   gap: 16px;
 }
 
+.notice-language {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .notice-icon-badge {
   width: 52px;
   height: 52px;

@@ -1400,6 +1400,9 @@ function PlatformNoticeModal({ onClose }: { onClose: () => void }) {
             <h3 id="notice-title">{t.noticeModal.title}</h3>
           </div>
         </header>
+        <div className="notice-language">
+          <LanguageSelector />
+        </div>
         <p className="notice-message" id="notice-message">
           {t.noticeModal.message}
         </p>
