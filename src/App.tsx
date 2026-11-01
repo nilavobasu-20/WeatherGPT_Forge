@@ -3,21 +3,18 @@ import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 
 type OccupationKey = 'farmer' | 'marine' | 'aviation' | 'others';
 
-type WeatherApiResponse = {
-  name: string;
-  sys: { country: string; sunrise: number; sunset: number };
-  main: {
-    temp: number;
-    feels_like: number;
-    humidity: number;
-    pressure: number;
-    temp_min: number;
-    temp_max: number;
-  };
-  weather: Array<{ main: string; description: string; icon: string }>;
-  wind: { speed: number; deg: number };
-  clouds: { all: number };
-  coord: { lon: number; lat: number };
+type WeatherData = {
+  locationName: string;
+  country: string;
+  temperatureC: number;
+  feelsLikeC: number;
+  humidity: number;
+  pressure: number;
+  windKmh: number;
+  condition: string;
+  iconUrl: string;
+  sunriseText: string;
+  sunsetText: string;
 };
 
 type OccupationProfile = {
@@ -84,7 +81,7 @@ const occupationProfiles: Record<OccupationKey, OccupationProfile> = {
   },
 };
 
-const apiKey = import.meta.env.VITE_WEATHER_API_KEY as string | undefined;
+const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined;
 const activepiecesWebhookUrl = (import.meta.env.VITE_ACTIVEPIECES_WEBHOOK_URL as string | undefined) ?? '';
 
 function App() {
@@ -161,13 +158,13 @@ function OccupationPage() {
   const profile = occupationProfiles[safeOccupation] ?? occupationProfiles.others;
 
   const [city, setCity] = useState(profile.defaultCity);
-  const [weather, setWeather] = useState<WeatherApiResponse | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const fetchWeather = async (location: string) => {
-    if (!apiKey) {
-      setError('Add VITE_WEATHER_API_KEY in your .env.local file to enable live weather data.');
+    if (!googleApiKey) {
+      setError('Add VITE_GOOGLE_API_KEY in your .env.local file to enable live weather data.');
       return;
     }
 
@@ -175,18 +172,56 @@ function OccupationPage() {
     setError('');
 
     try {
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-          location,
-        )}&appid=${apiKey}&units=metric`,
+      const geocodeResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${googleApiKey}`,
       );
 
-      if (!response.ok) {
-        throw new Error('Weather data could not be fetched for this location.');
+      const geocodeData = await geocodeResponse.json();
+
+      if (geocodeData.status !== 'OK' || !geocodeData.results?.length) {
+        throw new Error('Could not resolve that city or location in Google Maps.');
       }
 
-      const data = (await response.json()) as WeatherApiResponse;
-      setWeather(data);
+      const place = geocodeData.results[0];
+      const lat = place.geometry.location.lat;
+      const lng = place.geometry.location.lng;
+
+      const weatherResponse = await fetch(
+        `https://weather.googleapis.com/v1/currentConditions:lookup?key=${googleApiKey}&location.latitude=${lat}&location.longitude=${lng}`,
+      );
+
+      const weatherData = await weatherResponse.json();
+
+      if (weatherData?.error) {
+        throw new Error(weatherData.error.message || 'Google Weather API request failed.');
+      }
+
+      const current = weatherData.currentConditions ?? {};
+      const temperatureC = Number(current.temperature?.celsius ?? 0);
+      const feelsLikeC = Number(current.feelsLikeTemperature?.celsius ?? temperatureC);
+      const humidity = Number(current.relativeHumidity ?? 0);
+      const windKmh = Number(current.wind?.speed?.kilometersPerHour ?? 0);
+      const pressure = Number(current.airPressure?.meanSeaLevelMillibars ?? current.airPressure?.millibars ?? 0);
+      const conditionText = current.weatherCondition?.description?.text ?? 'Weather update';
+      const iconUrl = current.weatherCondition?.iconBaseUri
+        ? `${current.weatherCondition.iconBaseUri}_s.png`
+        : 'https://maps.gstatic.com/tactile/weather/png/72/sunny.png';
+
+      setWeather({
+        locationName: place.formatted_address || location,
+        country:
+          place.address_components?.find((component: any) => component.types?.includes('country'))?.long_name ??
+          'Unknown',
+        temperatureC,
+        feelsLikeC,
+        humidity,
+        pressure,
+        windKmh,
+        condition: conditionText,
+        iconUrl,
+        sunriseText: '--',
+        sunsetText: '--',
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong while fetching weather data.');
     } finally {
@@ -254,29 +289,24 @@ function OccupationPage() {
               <div className="weather-top">
                 <div>
                   <p className="location">
-                    {weather.name}, {weather.sys.country}
+                    {weather.locationName}, {weather.country}
                   </p>
-                  <h1>{Math.round(weather.main.temp)}°C</h1>
-                  <p className="condition">
-                    {weather.weather[0].main} • {weather.weather[0].description}
-                  </p>
+                  <h1>{Math.round(weather.temperatureC)}°C</h1>
+                  <p className="condition">{weather.condition}</p>
                 </div>
 
                 <div className="weather-icon">
-                  <img
-                    src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
-                    alt={weather.weather[0].description}
-                  />
+                  <img src={weather.iconUrl} alt={weather.condition} />
                 </div>
               </div>
 
               <div className="stats-grid">
-                <MetricCard label="Feels like" value={`${Math.round(weather.main.feels_like)}°C`} />
-                <MetricCard label="Humidity" value={`${weather.main.humidity}%`} />
-                <MetricCard label="Wind" value={`${weather.wind.speed} m/s`} />
-                <MetricCard label="Pressure" value={`${weather.main.pressure} hPa`} />
-                <MetricCard label="Sunrise" value={formatTime(weather.sys.sunrise)} />
-                <MetricCard label="Sunset" value={formatTime(weather.sys.sunset)} />
+                <MetricCard label="Feels like" value={`${Math.round(weather.feelsLikeC)}°C`} />
+                <MetricCard label="Humidity" value={`${Math.round(weather.humidity)}%`} />
+                <MetricCard label="Wind" value={`${Math.round(weather.windKmh)} km/h`} />
+                <MetricCard label="Pressure" value={`${Math.round(weather.pressure)} hPa`} />
+                <MetricCard label="Sunrise" value={weather.sunriseText} />
+                <MetricCard label="Sunset" value={weather.sunsetText} />
               </div>
             </>
           ) : (
