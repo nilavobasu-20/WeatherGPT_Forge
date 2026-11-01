@@ -186,6 +186,47 @@ app.get('/api/suggestions', async (req, res) => {
   res.json({ suggestions: [] });
 });
 
+// Chat proxy to Activepieces webhook (avoids CORS on deployed builds)
+const DEFAULT_WEBHOOK_URL = 'https://cloud.activepieces.com/api/v1/webhooks/47Z2utYcnmyBR62fAmCWb/sync';
+
+app.post('/api/chat', express.json(), async (req, res) => {
+  const webhookUrl =
+    process.env.VITE_ACTIVEPIECES_WEBHOOK_URL ||
+    process.env.ACTIVEPIECES_WEBHOOK_URL ||
+    DEFAULT_WEBHOOK_URL;
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+
+    if (response.ok) {
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        res.status(200).json(data);
+      } else {
+        const text = await response.text();
+        res.status(200).json({ reply: text });
+      }
+    } else {
+      const text = await response.text();
+      res.status(response.status).json({
+        error: `Activepieces returned HTTP ${response.status}`,
+        details: text.slice(0, 500),
+      });
+    }
+  } catch (error) {
+    console.error('Chat proxy error:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unable to reach chatbot service',
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Weather proxy server running on http://localhost:${port}`);
 });

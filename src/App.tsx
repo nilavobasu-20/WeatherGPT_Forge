@@ -983,6 +983,13 @@ const POPULAR_LOCATIONS: LocationSuggestion[] = [
   { id: 'br-sao', name: 'São Paulo', subtext: 'Brazil' },
 ];
 
+const DEFAULT_ACTIVEPIECES_WEBHOOK_URL =
+  'https://cloud.activepieces.com/api/v1/webhooks/47Z2utYcnmyBR62fAmCWb/sync';
+
+const activepiecesWebhookUrl =
+  (import.meta.env.VITE_ACTIVEPIECES_WEBHOOK_URL as string | undefined) ||
+  DEFAULT_ACTIVEPIECES_WEBHOOK_URL;
+
 /** Safely parse fetch response */
 async function safeJsonParse(response: Response): Promise<Record<string, unknown>> {
   const text = await response.text();
@@ -1998,18 +2005,30 @@ function Chatbot({ occupation }: { occupation: OccupationKey }) {
 
     try {
       if (occupation === 'farmer') {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: trimmed,
-            query: trimmed,
-            occupation: 'farmer',
-            role: 'Farmer',
-            source: 'WeatherGPT_Forge',
-            timestamp: new Date().toISOString(),
-          }),
-        });
+        const payload = {
+          message: trimmed,
+          query: trimmed,
+          occupation: 'farmer',
+          role: 'Farmer',
+          source: 'WeatherGPT_Forge',
+          timestamp: new Date().toISOString(),
+        };
+
+        // Try direct call to Activepieces first (CORS allowed), fallback to local/Vercel proxy
+        let response: Response;
+        try {
+          response = await fetch(activepiecesWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } catch {
+          response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
 
         let botText = `Weather GPT: I connected to your Activepieces farmer bot for "${trimmed}".`;
 
@@ -2037,7 +2056,17 @@ function Chatbot({ occupation }: { occupation: OccupationKey }) {
             }
           }
         } else {
-          botText = `Weather GPT: Your Activepieces flow returned an error (${response.status}). Check the published webhook and ensure the flow is active.`;
+          let errorDetail = '';
+          try {
+            const errData = await response.json();
+            errorDetail = errData?.error || errData?.message || '';
+          } catch {
+            const errText = await response.text().catch(() => '');
+            if (errText && !errText.includes('<!doctype') && !errText.includes('<html')) {
+              errorDetail = errText.slice(0, 100);
+            }
+          }
+          botText = `Weather GPT: Chatbot request failed (${response.status})${errorDetail ? `: ${errorDetail}` : ''}. Please verify Activepieces webhook.`;
         }
 
         setMessages((previous) => [...previous, { sender: 'bot', text: botText }]);

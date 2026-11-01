@@ -1,19 +1,22 @@
+const DEFAULT_WEBHOOK_URL = 'https://cloud.activepieces.com/api/v1/webhooks/47Z2utYcnmyBR62fAmCWb/sync';
+
 export default async function handler(req, res) {
   // Only accept POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const webhookUrl = process.env.VITE_ACTIVEPIECES_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return res.status(500).json({ error: 'Activepieces webhook URL is not configured.' });
-  }
+  const webhookUrl =
+    process.env.VITE_ACTIVEPIECES_WEBHOOK_URL ||
+    process.env.ACTIVEPIECES_WEBHOOK_URL ||
+    DEFAULT_WEBHOOK_URL;
 
   try {
+    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(payload || {}),
     });
 
     const contentType = response.headers.get('content-type') || '';
@@ -40,4 +43,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

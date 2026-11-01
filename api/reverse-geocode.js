@@ -1,3 +1,5 @@
+const DEFAULT_GOOGLE_KEY = 'AIzaSyD4L7DZSxHArSFLvY2RpQtQYb5olaZ-aI0';
+
 export default async function handler(req, res) {
   const lat = req.query.lat;
   const lng = req.query.lng;
@@ -6,10 +8,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing lat/lng query parameters' });
   }
 
-  const googleApiKey = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_API_KEY;
-  if (!googleApiKey) {
-    return res.status(500).json({ error: 'Google API key is missing in the server environment.' });
-  }
+  const googleApiKey =
+    process.env.GOOGLE_API_KEY ||
+    process.env.VITE_GOOGLE_API_KEY ||
+    DEFAULT_GOOGLE_KEY;
 
   try {
     const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleApiKey}`;
@@ -69,4 +71,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

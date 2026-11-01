@@ -1,13 +1,15 @@
+const DEFAULT_GOOGLE_KEY = 'AIzaSyD4L7DZSxHArSFLvY2RpQtQYb5olaZ-aI0';
+
 export default async function handler(req, res) {
   const query = req.query.q;
   if (!query || typeof query !== 'string' || !query.trim()) {
     return res.json({ suggestions: [] });
   }
 
-  const googleApiKey = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_API_KEY;
-  if (!googleApiKey) {
-    return res.json({ suggestions: [] });
-  }
+  const googleApiKey =
+    process.env.GOOGLE_API_KEY ||
+    process.env.VITE_GOOGLE_API_KEY ||
+    DEFAULT_GOOGLE_KEY;
 
   try {
     const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=(cities)&key=${googleApiKey}`;
@@ -31,4 +33,3 @@ export default async function handler(req, res) {
 
   return res.json({ suggestions: [] });
 }
-
