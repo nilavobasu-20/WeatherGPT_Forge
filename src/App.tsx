@@ -1353,14 +1353,28 @@ async function fetchFallbackWeather(lat: number, lng: number, locationName: stri
     feelsLikeC: Number(current.apparent_temperature ?? current.temperature_2m ?? 24),
     humidity,
     windKmh,
-    pressure: Math.round(Number(current.surface_pressure ?? 1013)),
-    precipitationMm: precip,
-    precipitationProbability: precipProb,
-    condition,
-    iconUrl,
-    sunriseText: sunrise,
-    sunsetText: sunset,
-  };
+      windDirection: 'N/A',
+      windDegrees: 0,
+      windGustKmh: 0,
+      visibilityKm: 0,
+      pressure: Math.round(Number(current.surface_pressure ?? 1013)),
+      precipitationMm: precip,
+      precipitationProbability: precipProb,
+      condition,
+      iconUrl,
+      sunriseText: sunrise,
+      sunsetText: sunset,
+      dewPointC: 0,
+      heatIndexC: 0,
+      windChillC: 0,
+      maxTempC: 0,
+      minTempC: 0,
+      uvIndex: 0,
+      thunderstormProbability: 0,
+      cloudCover: 0,
+      isDaytime: true,
+      currentTime: new Date().toISOString(),
+    };
 }
 
 function App() {
@@ -1522,15 +1536,50 @@ function OccupationSelector() {
         <div className="glow glow-two" />
 
         <header className="topbar">
-          <div className="brand">
-            <span className="brand-mark">W</span>
-            <span>{t.brand}</span>
-          </div>
-          <div className="topbar-right">
-            <div className="tag">{t.tagline}</div>
-            <LanguageSelector />
-          </div>
-        </header>
+                  <div className="brand">
+                    <svg className="brand-logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="brandSky" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stop-color="#1e3a5f"/>
+                          <stop offset="100%" stop-color="#4a90d9"/>
+                        </linearGradient>
+                        <radialGradient id="brandSun" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stop-color="#fff8e7"/>
+                          <stop offset="40%" stop-color="#ffd54f"/>
+                          <stop offset="100%" stop-color="#ff9800"/>
+                        </radialGradient>
+                        <linearGradient id="brandLeaf" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stop-color="#8bd66c"/>
+                          <stop offset="100%" stop-color="#4caf50"/>
+                        </linearGradient>
+                      </defs>
+                      <rect width="48" height="48" rx="12" fill="url(#brandSky)"/>
+                      <circle cx="34" cy="14" r="10" fill="url(#brandSun)"/>
+                      <g fill="white" opacity="0.95">
+                        <ellipse cx="18" cy="22" rx="8" ry="5"/>
+                        <ellipse cx="26" cy="18" rx="7" ry="6"/>
+                        <ellipse cx="32" cy="22" rx="6" ry="4.5"/>
+                        <ellipse cx="24" cy="26" rx="9" ry="4"/>
+                      </g>
+                      <g transform="translate(10, 32) rotate(-20)">
+                        <path d="M0,0 Q-6,-10 -3,-20 Q0,-24 3,-20 Q9,-10 0,0" fill="url(#brandLeaf)"/>
+                        <path d="M0,0 Q-3,-5 -1.5,-10 Q0,-12 1.5,-10 Q4.5,-5 0,0" fill="#4caf50" opacity="0.9"/>
+                        <path d="M0,0 L0,-18" stroke="#2e7d32" stroke-width="0.8" stroke-linecap="round" opacity="0.5"/>
+                      </g>
+                      <path d="M38,30 Q42,30 42,34 Q42,38 38,42 Q34,38 30,34 Q30,30 34,30 Q38,30 38,30" fill="#5ac6ff" opacity="0.95"/>
+                      <ellipse cx="38" cy="32" rx="1.2" ry="0.8" fill="white" opacity="0.6"/>
+                      <g stroke="#7e8cff" stroke-width="1" stroke-linecap="round" opacity="0.5">
+                        <path d="M36,22 Q40,21 44,22"/>
+                        <path d="M36,25 Q40,24 44,25"/>
+                      </g>
+                    </svg>
+                    <span className="brand-text">WeatherGPT</span>
+                  </div>
+                  <div className="topbar-right">
+                    <div className="tag">{t.tagline}</div>
+                    <LanguageSelector />
+                  </div>
+                </header>
 
         <main className="hero">
           <div className="hero-copy">
@@ -2239,7 +2288,7 @@ function OccupationPage() {
 
                           <div className="chat-messages">
                             {messages.map((message, index) => (
-                              <div key={`${message.sender}-${index}`} className={`chat-message ${message.sender}`} style={{ '--msg-index': index }}>
+                              <div key={`${message.sender}-${index}`} className={`chat-message ${message.sender}`} style={{ '--msg-index': index } as React.CSSProperties}>
                                 <div className="message-bubble">{message.text}</div>
                               </div>
                             ))}
