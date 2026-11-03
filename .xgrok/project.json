@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "setup": "integrated",
+  "languages": [
+    "JavaScript/TypeScript",
+    "TypeScript"
+  ],
+  "stacks": [
+    "Node.js",
+    "TypeScript",
+    "React/Next",
+    "HTTP API"
+  ],
+  "markers": [
+    "package.json",
+    "tsconfig.json"
+  ],
+  "packageName": "weathergpt-forge",
+  "suggestedRun": "npm run dev",
+  "createdAt": "2026-11-03T09:17:10.263Z",
+  "tool": "xgrok"
+}

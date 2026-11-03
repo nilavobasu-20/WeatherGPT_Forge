@@ -8,7 +8,7 @@ export const LANGUAGES: { code: Language; label: string; nativeName: string; fla
 
 export const translations = {
   en: {
-    brand: 'Weather GPT',
+    brand: 'WeatherGPT',
     tagline: 'Personalized weather intelligence',
     eyebrow: 'AI-powered weather guidance',
     heroTitle: 'Weather insights tailored for your work.',
@@ -86,7 +86,7 @@ export const translations = {
     },
   },
   hi: {
-    brand: 'वेदर जीपीटी',
+    brand: 'वेदरजीपीटी',
     tagline: 'व्यक्तिगत मौसम बुद्धिमत्ता',
     eyebrow: 'एआई-संचालित मौसम मार्गदर्शन',
     heroTitle: 'आपके कार्य के अनुसार मौसम की सटीक अंतर्दृष्टि।',
@@ -164,7 +164,7 @@ export const translations = {
     },
   },
   bn: {
-    brand: 'ওয়েদার জিপিটি',
+    brand: 'ওয়েদারজিপিটি',
     tagline: 'ব্যক্তিগত আবহাওয়া গোয়েন্দা তথ্য',
     eyebrow: 'এআই-চালিত আবহাওয়া নির্দেশিকা',
     heroTitle: 'আপনার কাজের উপযোগী আবহাওয়ার অন্তর্দৃষ্টি।',
