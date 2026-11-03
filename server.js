@@ -1,8 +1,15 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env' });
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.join(__dirname, 'dist');
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -165,7 +172,9 @@ app.get('/api/suggestions', async (req, res) => {
   }
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=(cities)&key=${googleApiKey}`;
+    // Remove types=(cities) restriction to get all place types (areas, neighborhoods, establishments, etc.)
+    // like Google Maps autocomplete does
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${googleApiKey}`;
     const response = await fetch(url, { headers: getRefererHeaders(req) });
     const data = await safeJson(response);
 
@@ -226,6 +235,21 @@ app.post('/api/chat', express.json(), async (req, res) => {
     });
   }
 });
+
+// Static assets or development redirect
+if (fs.existsSync(path.join(distPath, 'index.html'))) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.redirect('http://localhost:5173/');
+  });
+}
 
 app.listen(port, () => {
   console.log(`Weather proxy server running on http://localhost:${port}`);

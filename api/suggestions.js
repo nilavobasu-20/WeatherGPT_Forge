@@ -12,7 +12,9 @@ export default async function handler(req, res) {
     DEFAULT_GOOGLE_KEY;
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=(cities)&key=${googleApiKey}`;
+    // Remove types=(cities) restriction to get all place types (areas, neighborhoods, establishments, etc.)
+    // like Google Maps autocomplete does
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${googleApiKey}`;
     const response = await fetch(url, {
       headers: { Accept: 'application/json' },
     });

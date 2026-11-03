@@ -25,12 +25,26 @@ type WeatherData = {
   humidity: number;
   pressure: number;
   windKmh: number;
+  windDirection: string;
+  windDegrees: number;
+  windGustKmh: number;
+  visibilityKm: number;
   precipitationMm: number;
   precipitationProbability: number;
   condition: string;
   iconUrl: string;
   sunriseText: string;
   sunsetText: string;
+  dewPointC: number;
+  heatIndexC: number;
+  windChillC: number;
+  maxTempC: number;
+  minTempC: number;
+  uvIndex: number;
+  thunderstormProbability: number;
+  cloudCover: number;
+  isDaytime: boolean;
+  currentTime: string;
 };
 
 type OccupationProfile = {
@@ -82,25 +96,25 @@ const occupationProfilesConfig: Record<OccupationKey, OccupationProfile> = {
     key: 'farmer',
     icon: '🌾',
     accent: '#8bd66c',
-    defaultCity: 'Nashik',
+    defaultCity: 'Kolkata',
   },
   marine: {
     key: 'marine',
     icon: '🌊',
     accent: '#5ac6ff',
-    defaultCity: 'Goa',
+    defaultCity: 'Kolkata',
   },
   aviation: {
     key: 'aviation',
     icon: '✈️',
     accent: '#9d8cff',
-    defaultCity: 'Delhi',
+    defaultCity: 'Kolkata',
   },
   others: {
     key: 'others',
     icon: '☀️',
     accent: '#ffc863',
-    defaultCity: 'Bengaluru',
+    defaultCity: 'Kolkata',
   },
 };
 
@@ -1153,8 +1167,16 @@ function parseGoogleWeather(
 ): WeatherData {
   const temp = data.temperature as { degrees?: number } | undefined;
   const feelsLike = data.feelsLikeTemperature as { degrees?: number } | undefined;
-  const wind = data.wind as { speed?: { value?: number } } | undefined;
+  const dewPoint = data.dewPoint as { degrees?: number } | undefined;
+  const heatIndex = data.heatIndex as { degrees?: number } | undefined;
+  const windChill = data.windChill as { degrees?: number } | undefined;
+  const wind = data.wind as { 
+    speed?: { value?: number; unit?: string };
+    direction?: { cardinal?: string; degrees?: number };
+    gust?: { value?: number; unit?: string };
+  } | undefined;
   const airPressure = data.airPressure as { meanSeaLevelMillibars?: number } | undefined;
+  const visibility = data.visibility as { distance?: number; unit?: string } | undefined;
   const weatherCondition = data.weatherCondition as {
     description?: { text?: string };
     iconBaseUri?: string;
@@ -1162,6 +1184,13 @@ function parseGoogleWeather(
   } | undefined;
   const precipObj = data.precipitation as {
     probability?: { percent?: number; type?: string };
+    qpf?: { quantity?: number; unit?: string };
+    snowQpf?: { quantity?: number; unit?: string };
+  } | undefined;
+  const history = data.currentConditionsHistory as {
+    temperatureChange?: { degrees?: number; unit?: string };
+    maxTemperature?: { degrees?: number; unit?: string };
+    minTemperature?: { degrees?: number; unit?: string };
     qpf?: { quantity?: number; unit?: string };
     snowQpf?: { quantity?: number; unit?: string };
   } | undefined;
@@ -1204,6 +1233,10 @@ function parseGoogleWeather(
     feelsLikeC: Number(feelsLike?.degrees ?? temperatureC),
     humidity: Number(data.relativeHumidity ?? 0),
     windKmh: Number(wind?.speed?.value ?? 0),
+    windDirection: wind?.direction?.cardinal ?? 'N/A',
+    windDegrees: Number(wind?.direction?.degrees ?? 0),
+    windGustKmh: Number(wind?.gust?.value ?? 0),
+    visibilityKm: Number(visibility?.distance ?? 0),
     pressure: Number(airPressure?.meanSeaLevelMillibars ?? 1013),
     precipitationMm,
     precipitationProbability,
@@ -1211,6 +1244,16 @@ function parseGoogleWeather(
     iconUrl,
     sunriseText: '--',
     sunsetText: '--',
+    dewPointC: Number(dewPoint?.degrees ?? 0),
+    heatIndexC: Number(heatIndex?.degrees ?? 0),
+    windChillC: Number(windChill?.degrees ?? 0),
+    maxTempC: Number(history?.maxTemperature?.degrees ?? 0),
+    minTempC: Number(history?.minTemperature?.degrees ?? 0),
+    uvIndex: Number(data.uvIndex ?? 0),
+    thunderstormProbability: Number(data.thunderstormProbability ?? 0),
+    cloudCover: Number(data.cloudCover ?? 0),
+    isDaytime: Boolean(data.isDaytime),
+    currentTime: (data.currentTime as string) || new Date().toISOString(),
   };
 }
 
@@ -1690,22 +1733,36 @@ function OccupationPage() {
         const data = await safeJsonParse(response);
 
         if (response.ok && !data?.error) {
-          setWeather(parseGoogleWeather(data, specificLocationName, country));
-          return;
+            const googleWeather = parseGoogleWeather(data, specificLocationName, country);
+          
+            // Fetch sunrise/sunset from Open-Meteo (Google doesn't provide them)
+            try {
+              const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=sunrise,sunset&timezone=auto`;
+              const omRes = await fetch(omUrl);
+              const omData = await omRes.json();
+              const daily = omData?.daily || {};
+              const sunrise = Array.isArray(daily.sunrise) && daily.sunrise[0] ? daily.sunrise[0].split('T')[1]?.slice(0, 5) ?? '--' : '--';
+              const sunset = Array.isArray(daily.sunset) && daily.sunset[0] ? daily.sunset[0].split('T')[1]?.slice(0, 5) ?? '--' : '--';
+            
+              setWeather({ ...googleWeather, sunriseText: sunrise, sunsetText: sunset });
+            } catch {
+              setWeather({ ...googleWeather, sunriseText: '--', sunsetText: '--' });
+            }
+            return;
+          }
+        } catch {
+          // Fall back to Open-Meteo
         }
-      } catch {
-        // Fall back to Open-Meteo
-      }
 
-      // 2. Fallback to Open-Meteo with accurate precipitation and varied conditions
-      const fallbackData = await fetchFallbackWeather(lat, lng, specificLocationName, country);
-      setWeather(fallbackData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong while fetching weather data.');
-    } finally {
-      setLoading(false);
-    }
-  };
+        // 2. Fallback to Open-Meteo with accurate precipitation and varied conditions
+        const fallbackData = await fetchFallbackWeather(lat, lng, specificLocationName, country);
+        setWeather(fallbackData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Something went wrong while fetching weather data.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
   /** Geocode a city name, then fetch weather for the resolved coordinates */
   const fetchWeather = async (location: string) => {
@@ -1876,7 +1933,7 @@ function OccupationPage() {
                   if (suggestions.length > 0) setShowSuggestions(true);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder={t.searchPlaceholder(profile.defaultCity)}
+                placeholder={t.searchPlaceholder()}
                 autoComplete="off"
               />
 
@@ -1935,11 +1992,22 @@ function OccupationPage() {
                   value={`${weather.precipitationMm} mm (${weather.precipitationProbability}%)`}
                 />
                 <MetricCard label={t.humidity} value={`${Math.round(weather.humidity)}%`} />
-                <MetricCard label={t.wind} value={`${Math.round(weather.windKmh)} km/h`} />
-                <MetricCard label={t.pressure} value={`${Math.round(weather.pressure)} hPa`} />
-                <MetricCard label={t.sunrise} value={weather.sunriseText} />
-                <MetricCard label={t.sunset} value={weather.sunsetText} />
-              </div>
+                              <MetricCard label={t.dewPoint} value={`${Math.round(weather.dewPointC)}°C`} />
+                              <MetricCard label={t.heatIndex} value={`${Math.round(weather.heatIndexC)}°C`} />
+                              <MetricCard label={t.windChill} value={`${Math.round(weather.windChillC)}°C`} />
+                              <MetricCard label={t.wind} value={`${Math.round(weather.windKmh)} km/h`} />
+                              <MetricCard label={t.windGust} value={`${Math.round(weather.windGustKmh)} km/h`} />
+                              <MetricCard label={t.windDirection} value={`${weather.windDirection} (${weather.windDegrees}°)`} />
+                              <MetricCard label={t.visibility} value={`${weather.visibilityKm} km`} />
+                              <MetricCard label={t.pressure} value={`${Math.round(weather.pressure)} hPa`} />
+                              <MetricCard label={t.maxTemp} value={`${Math.round(weather.maxTempC)}°C`} />
+                              <MetricCard label={t.minTemp} value={`${Math.round(weather.minTempC)}°C`} />
+                              <MetricCard label={t.uvIndex} value={weather.uvIndex.toString()} />
+                              <MetricCard label={t.thunderstormProb} value={`${weather.thunderstormProbability}%`} />
+                              <MetricCard label={t.cloudCover} value={`${weather.cloudCover}%`} />
+                              <MetricCard label={t.sunrise} value={weather.sunriseText} />
+                              <MetricCard label={t.sunset} value={weather.sunsetText} />
+                            </div>
             </>
           ) : (
             <div className="empty-state">{t.weatherWillAppear}</div>
@@ -1947,199 +2015,269 @@ function OccupationPage() {
         </section>
 
         <aside className="insights-panel glass-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow light">{t.aiInsightsModel}</p>
-              <h3>{profile.subtitle}</h3>
-            </div>
-            <div className={`insight-header-badge risk-${aiInsights.riskLevel.toLowerCase()}`}>
-              {t.risk}: {localizedRiskLevel} ({aiInsights.riskScore}/10)
-            </div>
-          </div>
+                  <div className="panel-header">
+                    <div>
+                      <p className="eyebrow light">{t.aiInsightsModel}</p>
+                      <h3>{profile.subtitle}</h3>
+                    </div>
+                    <div className={`insight-header-badge risk-${aiInsights.riskLevel.toLowerCase()}`}>
+                      {t.risk}: {localizedRiskLevel} ({aiInsights.riskScore}/10)
+                    </div>
+                  </div>
 
-          <div className="suggestion-list">
-            {aiInsights.insights.map((item, index) => (
-              <div key={`${item.title}-${index}`} className="ai-insight-card">
-                <div className="ai-insight-top">
-                  <span className={`ai-insight-tag tag-${item.level}`}>
-                    {item.icon} {item.tag}
-                  </span>
-                </div>
-                <h4 className="ai-insight-title">{item.title}</h4>
-                <p className="ai-insight-advice">{item.advice}</p>
-              </div>
-            ))}
-          </div>
+                  <div className="suggestion-list">
+                    {aiInsights.insights.map((item, index) => (
+                      <div key={`${item.title}-${index}`} className="ai-insight-card">
+                        <div className="ai-insight-top">
+                          <span className={`ai-insight-tag tag-${item.level}`}>
+                            {item.icon} {item.tag}
+                          </span>
+                        </div>
+                        <h4 className="ai-insight-title">{item.title}</h4>
+                        <p className="ai-insight-advice">{item.advice}</p>
+                      </div>
+                    ))}
+                  </div>
 
-          <div className="summary-box">
-            <p className="summary-label">{t.operationalRecommendation}</p>
-            <p>{aiInsights.operationalNote}</p>
-          </div>
-        </aside>
+                  <div className="summary-box">
+                    <p className="summary-label">{t.operationalRecommendation}</p>
+                    <p>{aiInsights.operationalNote}</p>
+                  </div>
+                </aside>
 
-        <section className="chat-panel glass-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow light">{t.assistant}</p>
-              <h3>{t.ragChatbot}</h3>
-            </div>
-          </div>
-          <Chatbot occupation={safeOccupation} />
-        </section>
-      </main>
-    </div>
-  );
-}
+                {/* KISHAN-SATHI AI Floating Button + Slide-out Panel */}
+                <KishanSathiFAB occupation={safeOccupation} />
+              </main>
+                          </div>
+                        );
+                      }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+              /** KISHAN-SATHI AI Floating Action Button with Slide-out Panel */
+              function KishanSathiFAB({ occupation }: { occupation: OccupationKey }) {
+                const { t } = useLanguage();
+                const [isOpen, setIsOpen] = useState(false);
+                const [messages, setMessages] = useState<{ sender: 'bot' | 'user'; text: string }[]>(() => [
+                  { sender: 'bot', text: t.chatInitial },
+                ]);
+                const [input, setInput] = useState('');
+                const [isSending, setIsSending] = useState(false);
+                const panelRef = useRef<HTMLDivElement>(null);
+                const messagesEndRef = useRef<HTMLDivElement>(null);
+
+                // Update initial message if language changes
+                useEffect(() => {
+                  setMessages((prev) => {
+                    if (prev.length === 1 && prev[0].sender === 'bot') {
+                      return [{ sender: 'bot', text: t.chatInitial }];
+                    }
+                    return prev;
+                  });
+                }, [t.chatInitial]);
+
+                // Scroll to bottom when messages change
+                useEffect(() => {
+                  messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                }, [messages]);
+
+                // Close on Escape key
+                useEffect(() => {
+                  const handleKeyDown = (e: KeyboardEvent) => {
+                    if (e.key === 'Escape' && isOpen) setIsOpen(false);
+                  };
+                  window.addEventListener('keydown', handleKeyDown);
+                  return () => window.removeEventListener('keydown', handleKeyDown);
+                }, [isOpen]);
+
+                const sendMessage = async () => {
+                  const trimmed = input.trim();
+                  if (!trimmed || isSending) return;
+
+                  const userMessage = { sender: 'user' as const, text: trimmed };
+                  setMessages((previous) => [...previous, userMessage]);
+                  setInput('');
+                  setIsSending(true);
+
+                  try {
+                    if (occupation === 'farmer') {
+                      const payload = {
+                        message: trimmed,
+                        query: trimmed,
+                        occupation: 'farmer',
+                        role: 'Farmer',
+                        source: 'WeatherGPT_Forge',
+                        timestamp: new Date().toISOString(),
+                      };
+
+                      let response: Response;
+                      try {
+                        response = await fetch(activepiecesWebhookUrl, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload),
+                        });
+                      } catch {
+                        response = await fetch('/api/chat', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload),
+                        });
+                      }
+
+                      let botText = `KISHAN-SATHI AI: I connected to your farmer bot for "${trimmed}".`;
+
+                      if (response.ok) {
+                        const contentType = response.headers.get('content-type') ?? '';
+                        if (contentType.includes('application/json')) {
+                          const data = await response.json();
+                          const candidate =
+                            data?.answer ??
+                            data?.reply ??
+                            data?.message ??
+                            data?.output ??
+                            data?.response ??
+                            data?.result ??
+                            data?.text;
+                          if (typeof candidate === 'string' && candidate.trim()) {
+                            botText = candidate.trim();
+                          } else if (data && typeof data === 'object') {
+                            botText = JSON.stringify(data, null, 2);
+                          }
+                        } else {
+                          const text = await response.text();
+                          if (text.trim()) {
+                            botText = text.trim();
+                          }
+                        }
+                      } else {
+                        let errorDetail = '';
+                        try {
+                          const errData = await response.json();
+                          errorDetail = errData?.error || errData?.message || '';
+                        } catch {
+                          const errText = await response.text().catch(() => '');
+                          if (errText && !errText.includes('<!doctype') && !errText.includes('<html')) {
+                            errorDetail = errText.slice(0, 100);
+                          }
+                        }
+                        botText = `KISHAN-SATHI AI: Request failed (${response.status})${errorDetail ? `: ${errorDetail}` : ''}. Please verify webhook.`;
+                      }
+
+                      setMessages((previous) => [...previous, { sender: 'bot', text: botText }]);
+                      return;
+                    }
+
+                    const fallbackReply = `KISHAN-SATHI AI: Based on current conditions, here's guidance for "${trimmed}". Connect your RAG backend for dynamic AI responses.`;
+                    setMessages((previous) => [...previous, { sender: 'bot', text: fallbackReply }]);
+                  } catch (error) {
+                    const fallbackReply =
+                      error instanceof Error
+                        ? `KISHAN-SATHI AI: Error contacting service: ${error.message}`
+                        : 'KISHAN-SATHI AI: There was an issue contacting the chatbot service.';
+                    setMessages((previous) => [...previous, { sender: 'bot', text: fallbackReply }]);
+                  } finally {
+                    setIsSending(false);
+                  }
+                };
+
+                const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+                  if (e.key === 'Enter') {
+                    void sendMessage();
+                  }
+                };
+
+                const occupationIcons = {
+                  farmer: '🌾',
+                  marine: '🌊',
+                  aviation: '✈️',
+                  others: '☀️',
+                };
+
+                return (
+                  <>
+                    {/* Floating Action Button */}
+                    {!isOpen && (
+                      <button
+                        className={`fab-chat ${isOpen ? 'open' : ''}`}
+                        onClick={() => setIsOpen(true)}
+                        aria-label={t.ragChatbot}
+                        aria-expanded={isOpen}
+                      >
+                        <span className="fab-icon" aria-hidden="true">{occupationIcons[occupation]}</span>
+                        <span className="fab-text">KISHAN-SATHI AI</span>
+                        <span className="fab-close" aria-hidden="true">✕</span>
+                        <span className="fab-pulse" aria-hidden="true" />
+                      </button>
+                    )}
+
+                    {/* Slide-out Chat Panel */}
+                    {isOpen && (
+                      <div className="chat-overlay" onClick={() => setIsOpen(false)} role="presentation">
+                        <div
+                          className="chat-panel-slide"
+                          ref={panelRef}
+                          onClick={(e) => e.stopPropagation()}
+                          role="dialog"
+                          aria-modal="true"
+                          aria-label={t.ragChatbot}
+                        >
+                          <div className="chat-header">
+                            <div className="chat-header-left">
+                              <span className="chat-avatar" aria-hidden="true">{occupationIcons[occupation]}</span>
+                              <div>
+                                <h4>KISHAN-SATHI AI</h4>
+                                <p className="chat-subtitle">{t.occupations[occupation]?.subtitle || ''}</p>
+                              </div>
+                            </div>
+                            <button
+                              className="chat-close-btn"
+                              onClick={() => setIsOpen(false)}
+                              aria-label={t.noticeModal.closeButton}
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          <div className="chat-messages">
+                            {messages.map((message, index) => (
+                              <div key={`${message.sender}-${index}`} className={`chat-message ${message.sender}`} style={{ '--msg-index': index }}>
+                                <div className="message-bubble">{message.text}</div>
+                              </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                          </div>
+
+                          <div className="chat-input-row">
+                            <input
+                              type="text"
+                              value={input}
+                              onChange={(event) => setInput(event.target.value)}
+                              onKeyDown={handleKeyDown}
+                              placeholder={occupation === 'farmer' ? t.chatPlaceholderFarmer : t.chatPlaceholderGeneral}
+                              disabled={isSending}
+                              autoFocus
+                              aria-label="Type your question"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void sendMessage()}
+                              disabled={isSending || !input.trim()}
+                              aria-label="Send message"
+                            >
+                              {isSending ? t.sending : t.send}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              }
+
+              function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="metric-card">
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
-  );
-}
-
-function Chatbot({ occupation }: { occupation: OccupationKey }) {
-  const { t } = useLanguage();
-  const [messages, setMessages] = useState(() => [
-    {
-      sender: 'bot',
-      text: t.chatInitial,
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
-
-  // Update initial message if language changes and only initial message is present
-  useEffect(() => {
-    setMessages((prev) => {
-      if (prev.length === 1 && prev[0].sender === 'bot') {
-        return [{ sender: 'bot', text: t.chatInitial }];
-      }
-      return prev;
-    });
-  }, [t.chatInitial]);
-
-  const sendMessage = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || isSending) return;
-
-    const userMessage = { sender: 'user', text: trimmed };
-    setMessages((previous) => [...previous, userMessage]);
-    setInput('');
-    setIsSending(true);
-
-    try {
-      if (occupation === 'farmer') {
-        const payload = {
-          message: trimmed,
-          query: trimmed,
-          occupation: 'farmer',
-          role: 'Farmer',
-          source: 'WeatherGPT_Forge',
-          timestamp: new Date().toISOString(),
-        };
-
-        // Try direct call to Activepieces first (CORS allowed), fallback to local/Vercel proxy
-        let response: Response;
-        try {
-          response = await fetch(activepiecesWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        } catch {
-          response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        }
-
-        let botText = `Weather GPT: I connected to your Activepieces farmer bot for "${trimmed}".`;
-
-        if (response.ok) {
-          const contentType = response.headers.get('content-type') ?? '';
-          if (contentType.includes('application/json')) {
-            const data = await response.json();
-            const candidate =
-              data?.answer ??
-              data?.reply ??
-              data?.message ??
-              data?.output ??
-              data?.response ??
-              data?.result ??
-              data?.text;
-            if (typeof candidate === 'string' && candidate.trim()) {
-              botText = candidate.trim();
-            } else if (data && typeof data === 'object') {
-              botText = JSON.stringify(data, null, 2);
-            }
-          } else {
-            const text = await response.text();
-            if (text.trim()) {
-              botText = text.trim();
-            }
-          }
-        } else {
-          let errorDetail = '';
-          try {
-            const errData = await response.json();
-            errorDetail = errData?.error || errData?.message || '';
-          } catch {
-            const errText = await response.text().catch(() => '');
-            if (errText && !errText.includes('<!doctype') && !errText.includes('<html')) {
-              errorDetail = errText.slice(0, 100);
-            }
-          }
-          botText = `Weather GPT: Chatbot request failed (${response.status})${errorDetail ? `: ${errorDetail}` : ''}. Please verify Activepieces webhook.`;
-        }
-
-        setMessages((previous) => [...previous, { sender: 'bot', text: botText }]);
-        return;
-      }
-
-      const fallbackReply = `Weather GPT: Based on the current conditions, here is a suggested answer for "${trimmed}". Connect your RAG backend here for dynamic AI responses.`;
-      setMessages((previous) => [...previous, { sender: 'bot', text: fallbackReply }]);
-    } catch (error) {
-      const fallbackReply =
-        error instanceof Error
-          ? `Weather GPT: Error while contacting Activepieces: ${error.message}`
-          : 'Weather GPT: There was an issue contacting the chatbot service.';
-      setMessages((previous) => [...previous, { sender: 'bot', text: fallbackReply }]);
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  return (
-    <div className="chatbox">
-      <div className="chat-messages">
-        {messages.map((message, index) => (
-          <div key={`${message.sender}-${index}`} className={`message ${message.sender}`}>
-            {message.text}
-          </div>
-        ))}
-      </div>
-
-      <div className="chat-input-row">
-        <input
-          type="text"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              void sendMessage();
-            }
-          }}
-          placeholder={occupation === 'farmer' ? t.chatPlaceholderFarmer : t.chatPlaceholderGeneral}
-          disabled={isSending}
-        />
-        <button type="button" onClick={() => void sendMessage()} disabled={isSending}>
-          {isSending ? t.sending : t.send}
-        </button>
-      </div>
     </div>
   );
 }
