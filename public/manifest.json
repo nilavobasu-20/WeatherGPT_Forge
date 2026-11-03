@@ -1,0 +1,43 @@
+{
+  "name": "Weather GPT",
+  "short_name": "Weather GPT",
+  "description": "Personalized weather intelligence for farmers, marine professionals, aviation personnel, and everyone else.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#1e3a5f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["weather", "agriculture", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Farmer Mode",
+      "short_name": "Farmer",
+      "description": "Crop and field intelligence",
+      "url": "/farmer",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Marine Mode",
+      "short_name": "Marine",
+      "description": "Ocean safety and sea state",
+      "url": "/marine",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Aviation Mode",
+      "short_name": "Aviation",
+      "description": "Flight readiness and visibility",
+      "url": "/aviation",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    }
+  ]
+}
